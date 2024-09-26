@@ -90,15 +90,51 @@ function openBox() public {
 }
 ```
 
+H-1 Anyone can change the owner address allowing funds to be stolen
+
 ## Summary
+
+The MysteryBox contract contains a critical vulnerability that allows a malicious user to steal all funds stored in the contract. This is possible due to the lack of restrictions on the `changeOwner` function, enabling an attacker to change the contract's ownership and withdraw all ether.
 
 ## Vulnerability Details
 
+Ownership Transfer: The changeOwner function can be called by any user, not just the current owner, to transfer ownership of the contract. This lack of access control allows unauthorized changes in ownership.
+
+Fund Withdrawal: The withdrawFunds function allows the current owner to withdraw all ether from the contract. Since ownership can be transferred without restriction, a malicious user can exploit this to withdraw funds after changing ownership.
+
 ## Impact
+
+An attacker can exploit this vulnerability to:
+
+Change Ownership: Transfer contract ownership to their address using the changeOwner function.
+Withdraw Funds: Call the withdrawFunds function to withdraw all ether from the contract after acquiring ownership.
+This results in the loss of all funds stored in the contract,
 
 ## Tools Used
 
+Unit Test
+POC: Add this to your test suit
+
+```javascript
+function testStealFunds() public {
+        vm.startPrank(user2);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        vm.startPrank(user3);
+        mysteryBox.buyBox{value: 0.1 ether}();
+
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        mysteryBox.changeOwner(user1);
+        mysteryBox.withdrawFunds();
+        vm.stopPrank();
+
+        assertEq(mysteryBox.getBalance(), 0);
+    }
+```
+
 ## Recommendations
+
+Add a check/an onlyOwner modifier that checks if the address calling `changeOwner` is only made by the contract owner.
 
 ## Summary
 

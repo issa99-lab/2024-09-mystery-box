@@ -15,6 +15,7 @@ contract MysteryBox {
     }
 
     constructor() payable {
+        //uint amount, safetransfer library
         owner = msg.sender;
         boxPrice = 0.1 ether;
         require(msg.value >= SEEDVALUE, "Incorrect ETH sent");
@@ -40,7 +41,7 @@ contract MysteryBox {
         boxesOwned[msg.sender] += 1;
     }
 
-    function openBox() public {
+    function openBox() public returns (uint) {
         require(boxesOwned[msg.sender] > 0, "No boxes to open");
 
         // Generate a random number between 0 and 99
@@ -66,6 +67,7 @@ contract MysteryBox {
         }
 
         boxesOwned[msg.sender] -= 1;
+        return randomValue;
     }
 
     function withdrawFunds() public {
@@ -111,6 +113,10 @@ contract MysteryBox {
         return rewardsOwned[msg.sender];
     }
 
+    function getBoxesOwned() public view returns (uint) {
+        return boxesOwned[msg.sender];
+    }
+
     function getRewardPool() public view returns (Reward[] memory) {
         return rewardPool;
     }
@@ -119,7 +125,7 @@ contract MysteryBox {
         owner = _newOwner;
     }
 
-    function balance() public view returns (uint256) {
+    function getBalance() public view returns (uint256) {
         uint256 bal = address(this).balance;
         return bal;
     }

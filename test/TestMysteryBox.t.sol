@@ -2,43 +2,91 @@
 pragma solidity ^0.8.0;
 
 import {console2} from "lib/forge-std/src/console2.sol";
-import {Test, console2} from "lib/forge-std/src/Test.sol";
-import {ERC20Mock} from "../src/ERC20Mock.sol";
+import {Test} from "lib/forge-std/src/Test.sol";
+//import {ERC20Mock} from "../src/ERC20Mock.sol";
 import "../src/MysteryBox.sol";
 
 contract MysteryBoxTest is Test {
     MysteryBox public mysteryBox;
     address public owner = makeAddr("owner");
-    address public user1 = address(0x1);
-    address public user2 = address(0x2);
-    ERC20Mock public usdc;
-    uint256 seedValue = 0.2 ether;
+    address public user1 = makeAddr("us1");
+    address public user2 = makeAddr("us2");
+    address public user3 = makeAddr("us3");
+    address public user4 = makeAddr("us4");
+    address[] public players;
+
+    //ERC20Mock public usdc;
 
     function setUp() public {
-        usdc = new ERC20Mock();
-        usdc.mint(owner, 2 ether);
-        usdc.mint(user1, 1 ether);
-        usdc.mint(user2, 1 ether);
+        vm.deal(owner, 2 ether);
+        vm.deal(user1, 1 ether);
+        vm.deal(user2, 1 ether);
+        vm.deal(user3, 1 ether);
+        vm.deal(user4, 1 ether);
 
-        vm.prank(owner);
-        mysteryBox = new MysteryBox{value: seedValue}();
+        for (uint i = 0; i < 5; i++) {
+            address recipient = vm.addr(i + 1);
+            players.push(recipient);
+
+            vm.deal(recipient, 0.1 ether);
+        }
+
+        vm.startPrank(owner);
+        mysteryBox = new MysteryBox{value: 0.1 ether}();
+
         console2.log("Reward Pool Length:", mysteryBox.getRewardPool().length);
-        console2.log("Bal:", mysteryBox.balance());
+        console2.log("Bal:", mysteryBox.getBalance());
+    }
+
+    function testStealFunds() public {
+        vm.startPrank(user2);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        vm.startPrank(user3);
+        mysteryBox.buyBox{value: 0.1 ether}();
+
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        mysteryBox.changeOwner(user1);
+        mysteryBox.withdrawFunds();
+        vm.stopPrank();
+
+        assertEq(mysteryBox.getBalance(), 0);
+    }
+
+    function testBuyOpenBoxAndClaimAllRewards() public {
+        for (uint i = 0; i < players.length; i++) {
+            address player = players[i];
+            vm.startPrank(player);
+            mysteryBox.buyBox{value: 0.1 ether}();
+            uint r = mysteryBox.openBox();
+            console2.log("REWARD:", r);
+            MysteryBox.Reward[] memory rewards = mysteryBox.getRewards();
+            console2.log("Player:", player);
+            console2.log("Number of rewards:", rewards.length);
+
+            for (uint j = 0; j < rewards.length; j++) {
+                console2.log("Reward Name:", rewards[j].name);
+                console2.log("Reward Amount:", rewards[j].value);
+            }
+            vm.stopPrank();
+        }
+        assertEq(mysteryBox.getBalance(), 0.6 ether);
     }
 
     function testOwnerIsSetCorrectly() public view {
         assertEq(mysteryBox.owner(), owner);
     }
 
-    function testSetBoxPrice() public {
+    function testFailSetBoxPrice() public {
         uint256 newPrice = 0.2 ether;
+        vm.startPrank(user1);
         mysteryBox.setBoxPrice(newPrice);
         assertEq(mysteryBox.boxPrice(), newPrice);
     }
 
     function testSetBoxPrice_NotOwner() public {
-        vm.prank(user1);
         vm.expectRevert("Only owner can set price");
+        vm.startPrank(user1);
         mysteryBox.setBoxPrice(0.2 ether);
     }
 
@@ -46,66 +94,66 @@ contract MysteryBoxTest is Test {
         mysteryBox.addReward("Diamond Coin", 2 ether);
         MysteryBox.Reward[] memory rewards = mysteryBox.getRewardPool();
         assertEq(rewards.length, 5);
-        assertEq(rewards[3].name, "Diamond Coin");
-        assertEq(rewards[3].value, 2 ether);
+        assertEq(rewards[4].name, "Diamond Coin");
+        assertEq(rewards[4].value, 2 ether);
     }
 
     function testAddReward_NotOwner() public {
-        vm.prank(user1);
+        vm.startPrank(user1);
         vm.expectRevert("Only owner can add rewards");
         mysteryBox.addReward("Diamond Coin", 2 ether);
     }
 
     function testBuyBox() public {
         vm.deal(user1, 1 ether);
-        vm.prank(user1);
+        vm.startPrank(user1);
         mysteryBox.buyBox{value: 0.1 ether}();
         assertEq(mysteryBox.boxesOwned(user1), 1);
     }
 
     function testBuyBox_IncorrectETH() public {
         vm.deal(user1, 1 ether);
-        vm.prank(user1);
+        vm.startPrank(user1);
         vm.expectRevert("Incorrect ETH sent");
         mysteryBox.buyBox{value: 0.05 ether}();
     }
 
     function testOpenBox() public {
         vm.deal(user1, 1 ether);
-        vm.prank(user1);
+        vm.startPrank(user1);
         mysteryBox.buyBox{value: 0.1 ether}();
         console2.log("Before Open:", mysteryBox.boxesOwned(user1));
-        vm.prank(user1);
+        vm.startPrank(user1);
         mysteryBox.openBox();
         console2.log("After Open:", mysteryBox.boxesOwned(user1));
         assertEq(mysteryBox.boxesOwned(user1), 0);
 
-        vm.prank(user1);
+        vm.startPrank(user1);
         MysteryBox.Reward[] memory rewards = mysteryBox.getRewards();
         console2.log(rewards[0].name);
         assertEq(rewards.length, 1);
     }
 
     function testOpenBox_NoBoxes() public {
-        vm.prank(user1);
+        vm.startPrank(user1);
         vm.expectRevert("No boxes to open");
         mysteryBox.openBox();
     }
 
     function testTransferReward_InvalidIndex() public {
-        vm.prank(user1);
+        vm.startPrank(user1);
         vm.expectRevert("Invalid index");
         mysteryBox.transferReward(user2, 0);
     }
 
     function testWithdrawFunds() public {
         vm.deal(user1, 1 ether);
-        vm.prank(user1);
+        vm.startPrank(user1);
         mysteryBox.buyBox{value: 0.1 ether}();
 
         uint256 ownerBalanceBefore = owner.balance;
         console2.log("Owner Balance Before:", ownerBalanceBefore);
-        vm.prank(owner);
+        vm.startPrank(owner);
         mysteryBox.withdrawFunds();
         uint256 ownerBalanceAfter = owner.balance;
         console2.log("Owner Balance After:", ownerBalanceAfter);
@@ -114,7 +162,7 @@ contract MysteryBoxTest is Test {
     }
 
     function testWithdrawFunds_NotOwner() public {
-        vm.prank(user1);
+        vm.startPrank(user1);
         vm.expectRevert("Only owner can withdraw");
         mysteryBox.withdrawFunds();
     }
@@ -125,7 +173,7 @@ contract MysteryBoxTest is Test {
     }
 
     function testChangeOwner_AccessControl() public {
-        vm.prank(user1);
+        vm.startPrank(user1);
         mysteryBox.changeOwner(user1);
         assertEq(mysteryBox.owner(), user1);
     }
