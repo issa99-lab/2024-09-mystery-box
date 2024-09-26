@@ -1,0 +1,121 @@
+M-1 Insecure Randomness Generation Vulnerability Using block.timestamp and msg.sender affects the fairness and reliability of Mystery Box
+
+## Summary
+
+The code generates a pseudo-random number using block.timestamp and msg.sender, but this approach is not secure for scenarios requiring unpredictable randomness. The inputs used can be influenced by miners or participants, making the randomness predictable.
+
+## Vulnerability Details
+
+The current implementation for generating randomness uses the keccak256 function with block.timestamp and msg.sender as inputs. While this might suffice for non-critical randomness needs, both block.timestamp and msg.sender are not truly random and can be influenced. For example:
+
+- Miners can manipulate the block timestamp within a limited range.
+- Malicious users can attempt to generate transactions at specific times, altering the msg.sender input.
+  This can lead to predictable outcomes in applications requiring strong randomness, such as lotteries or games, where fairness and unpredictability are critical.
+
+## Impact
+
+- Potential manipulation of outcomes in lotteries, raffles, or any application that depends on fair randomness.
+- Exploitation by malicious actors to tilt the results in their favor.
+
+## Tools Used
+
+Manual Review
+
+## Recommendations
+
+For stronger and more secure randomness, consider integrating a Verifiable Randomness mechanism like Chainlink VRF (Verifiable Random Function). Chainlink VRF provides cryptographically secure and verifiable randomness that is resistant to manipulation, ensuring the fairness and unpredictability of outcomes in critical applications.
+
+H-1 Overlapping Reward Tier Vulnerability in `openBox()` Function leads to incorrect reward assignment.
+
+## Summary
+
+An issue was identified at the `openBox` function where the reward tiers were overlapping, specifically between the Bronze and Silver rewards. This overlap caused unpredictable behavior in determining the correct reward for certain random values, leading to potential inconsistencies.
+
+## Vulnerability Details
+
+The logic used to determine the rewards based on a random number generated between 0 and 99 had overlapping conditions for the Bronze and Silver tiers:
+
+- Bronze Coin: Expected range was 75-94.
+- Silver Coin: Expected range was 95-98.
+  However, the condition for Silver Coin (randomValue < 99) could have included values that were already part of the Bronze Coin tier, leading to incorrect assignment of rewards.
+
+## Impact
+
+Incorrect Reward Assignment: Users expecting a reward within the Bronze or Silver range may have received the wrong reward due to the overlap.
+Potential Exploitation: In cases where rewards carry different values (e.g., higher-valued Silver Coin), users could exploit the overlap to increase their chances of getting more valuable rewards.
+
+## Tools Used
+
+Manual Review and Unit tests
+
+## Recommendations
+
+To resolve the issue, the conditions for each reward tier at the `openBox` function must be adjusted so that they are mutually exclusive.
+Specifically:
+
+- Bronze Coin: Adjust the range to randomValue >= 75 && randomValue < 95.
+- Silver Coin: Adjust the range to randomValue >= 95 && randomValue < 99.
+  This ensures that all random values fall into distinct reward categories, preventing overlaps and ensuring correct reward assignment.
+
+At the `openBox` function, replace the code with this:
+
+```javascript
+function openBox() public {
+    require(boxesOwned[msg.sender] > 0, "No boxes to open");
+
+    // Generate a random number between 0 and 99
+    uint256 randomValue = uint256(
+        keccak256(abi.encodePacked(block.timestamp, msg.sender))
+    ) % 100;
+
+    // Determine the reward based on probability
+    if (randomValue < 75) {
+        // 75% chance to get Coal (0-74)
+        rewardsOwned[msg.sender].push(Reward("Coal", 0 ether));
+  -  } else if (randomValue < 95)
+  +  } else if (randomValue >= 75 && randomValue < 95) {
+        // 20% chance to get Bronze Coin (75-94)
+        rewardsOwned[msg.sender].push(Reward("Bronze Coin", 0.1 ether));
+  -    else if (randomValue < 99) {
+  +  } else if (randomValue >= 95 && randomValue < 99) {
+        // 4% chance to get Silver Coin (95-98)
+        rewardsOwned[msg.sender].push(Reward("Silver Coin", 0.5 ether));
+    } else {
+        // 1% chance to get Gold Coin (99)
+        rewardsOwned[msg.sender].push(Reward("Gold Coin", 1 ether));
+    }
+
+    // Decrease the number of boxes owned by the sender
+    boxesOwned[msg.sender] -= 1;
+}
+```
+
+## Summary
+
+## Vulnerability Details
+
+## Impact
+
+## Tools Used
+
+## Recommendations
+
+## Summary
+
+## Vulnerability Details
+
+## Impact
+
+## Tools Used
+
+## Recommendations
+
+## Summary
+
+## Vulnerability Details
+
+## Impact
+
+## Tools Used
+
+## Recommendations

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {console2} from "forge-std/Test.sol";
-import "forge-std/Test.sol";
+import {console2} from "lib/forge-std/src/console2.sol";
+import {Test, console2} from "lib/forge-std/src/Test.sol";
+import {MockERC20} from "lib/forge-std/src/mocks/MockERC20.sol";
 import "../src/MysteryBox.sol";
 
 contract MysteryBoxTest is Test {
@@ -10,15 +11,22 @@ contract MysteryBoxTest is Test {
     address public owner;
     address public user1;
     address public user2;
+    MockERC20 public usdc;
 
     function setUp() public {
         owner = makeAddr("owner");
         user1 = address(0x1);
         user2 = address(0x2);
+        usdc = new MockERC20();
+        usdc._mint(owner, 2 ether);
+        usdc._mint(user1, 1 ether);
+        usdc._mint(user2, 1 ether);
+        // uint256 maxAmount = usdc.balanceOf(owner);
 
         vm.prank(owner);
         mysteryBox = new MysteryBox();
-        console.log("Reward Pool Length:", mysteryBox.getRewardPool().length);
+        console2.log("Reward Pool Length:", mysteryBox.getRewardPool().length);
+        console2.log("Bal:", mysteryBox.balance());
     }
 
     function testOwnerIsSetCorrectly() public view {
@@ -69,10 +77,10 @@ contract MysteryBoxTest is Test {
         vm.deal(user1, 1 ether);
         vm.prank(user1);
         mysteryBox.buyBox{value: 0.1 ether}();
-        console.log("Before Open:", mysteryBox.boxesOwned(user1));
+        console2.log("Before Open:", mysteryBox.boxesOwned(user1));
         vm.prank(user1);
         mysteryBox.openBox();
-        console.log("After Open:", mysteryBox.boxesOwned(user1));
+        console2.log("After Open:", mysteryBox.boxesOwned(user1));
         assertEq(mysteryBox.boxesOwned(user1), 0);
 
         vm.prank(user1);
@@ -99,11 +107,11 @@ contract MysteryBoxTest is Test {
         mysteryBox.buyBox{value: 0.1 ether}();
 
         uint256 ownerBalanceBefore = owner.balance;
-        console.log("Owner Balance Before:", ownerBalanceBefore);
+        console2.log("Owner Balance Before:", ownerBalanceBefore);
         vm.prank(owner);
         mysteryBox.withdrawFunds();
         uint256 ownerBalanceAfter = owner.balance;
-        console.log("Owner Balance After:", ownerBalanceAfter);
+        console2.log("Owner Balance After:", ownerBalanceAfter);
 
         assertEq(ownerBalanceAfter - ownerBalanceBefore, 0.1 ether);
     }
