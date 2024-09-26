@@ -3,28 +3,25 @@ pragma solidity ^0.8.0;
 
 import {console2} from "lib/forge-std/src/console2.sol";
 import {Test, console2} from "lib/forge-std/src/Test.sol";
-import {MockERC20} from "lib/forge-std/src/mocks/MockERC20.sol";
+import {ERC20Mock} from "../src/ERC20Mock.sol";
 import "../src/MysteryBox.sol";
 
 contract MysteryBoxTest is Test {
     MysteryBox public mysteryBox;
-    address public owner;
-    address public user1;
-    address public user2;
-    MockERC20 public usdc;
+    address public owner = makeAddr("owner");
+    address public user1 = address(0x1);
+    address public user2 = address(0x2);
+    ERC20Mock public usdc;
+    uint256 seedValue = 0.2 ether;
 
     function setUp() public {
-        owner = makeAddr("owner");
-        user1 = address(0x1);
-        user2 = address(0x2);
-        usdc = new MockERC20();
-        usdc._mint(owner, 2 ether);
-        usdc._mint(user1, 1 ether);
-        usdc._mint(user2, 1 ether);
-        // uint256 maxAmount = usdc.balanceOf(owner);
+        usdc = new ERC20Mock();
+        usdc.mint(owner, 2 ether);
+        usdc.mint(user1, 1 ether);
+        usdc.mint(user2, 1 ether);
 
         vm.prank(owner);
-        mysteryBox = new MysteryBox();
+        mysteryBox = new MysteryBox{value: seedValue}();
         console2.log("Reward Pool Length:", mysteryBox.getRewardPool().length);
         console2.log("Bal:", mysteryBox.balance());
     }
