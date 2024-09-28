@@ -45,9 +45,18 @@ contract MysteryBoxTest is Test {
         assertEq(user4.balance, 1 ether);
     }
 
+    function testPlayerCanClaimALLRewards() public {
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint r = mysteryBox.openBox();
+        console2.log("REWARD:", r);
+        vm.expectRevert();
+        mysteryBox.claimAllRewards();
+        assertEq(user1.balance, 0.9 ether);
+    }
+
     function testPlayerCanClaimRewards() public {
         //
-        vm.deal(address(this), 10 ether);
         vm.startPrank(user1);
         mysteryBox.buyBox{value: 0.1 ether}();
         uint r = mysteryBox.openBox();
@@ -59,19 +68,17 @@ contract MysteryBoxTest is Test {
         uint a = mysteryBox.openBox();
         console2.log("REWARD:", a);
         mysteryBox.claimSingleReward(1);
+        MysteryBox.Reward[] memory aa = mysteryBox.getRewards(user1);
         //
         vm.startPrank(user2);
-        mysteryBox.buyBox{value: 0.1 ether}();
+        mysteryBox.buyBox{value: 0.1 ether}(); //silver reward 1
         uint b = mysteryBox.openBox();
         console2.log("REWARD:", b);
         //
-        mysteryBox.buyBox{value: 0.1 ether}();
+        mysteryBox.buyBox{value: 0.1 ether}(); //silver reward 2
         uint c = mysteryBox.openBox();
         console2.log("REWARD:", c);
-        //
-        mysteryBox.buyBox{value: 0.1 ether}();
-        uint q = mysteryBox.openBox();
-        console2.log("REWARD:", q);
+        mysteryBox.buyBox{value: 0.1 ether}(); //silver reward 3
         mysteryBox.claimAllRewards();
         MysteryBox.Reward[] memory rew = mysteryBox.getRewards(user2);
 
@@ -100,10 +107,12 @@ contract MysteryBoxTest is Test {
         console2.log("REWARD:", f);
         mysteryBox.claimSingleReward(1);
 
-        assertEq(mysteryBox.getBalance(), 19.4 ether);
+        //  assertEq(mysteryBox.getBalance(), 19.9 ether);
         assertEq(user3.balance, 0.8 ether);
-        assertEq(user2.balance, 2.2 ether);
+        assertEq(user2.balance, 1.7 ether);
+        assertEq(user1.balance, 0.8 ether);
         assertEq(rew.length, 0);
+        assertEq(aa.length, 2);
     }
 
     function testStealFunds() public {

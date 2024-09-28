@@ -199,7 +199,7 @@ function testStealFunds() public {
 
 Add a check/an onlyOwner modifier that checks if the address calling `changeOwner` is only made by the contract owner.
 
-M-1 Insecure Randomness Generation Vulnerability Using block.timestamp and msg.sender affects the fairness and reliability of Mystery Box
+M-1 Insecure Randomness Generation Vulnerability using block.timestamp and msg.sender affects the fairness and reliability of Mystery Box
 
 ## Summary
 
@@ -226,7 +226,7 @@ Manual Review
 
 For stronger and more secure randomness, consider integrating a Verifiable Randomness mechanism like Chainlink VRF (Verifiable Random Function). Chainlink VRF provides cryptographically secure and verifiable randomness that is resistant to manipulation, ensuring the fairness and unpredictability of outcomes in critical applications.
 
-M-2 Inconsistent Randomness in openBox Function Leading to Repeated Rewards
+H-5 Inconsistent Randomness in `openBox()` function Leads to Repeated Rewards when transacted at the same block
 
 ## Summary
 
@@ -234,7 +234,11 @@ The openBox function generates repeated rewards due to the reliance on block.tim
 
 ## Vulnerability Details
 
-The random number generation logic in the openBox function relies on block.timestamp and msg.sender to generate random values. This approach results in repeated outcomes when users open multiple boxes within the same block, as the entropy sources (block.timestamp and msg.sender) do not change sufficiently between transactions.
+Block Timestamp Dependency: Transactions occurring within the same block share identical block.timestamp values, reducing the randomness of reward allocation.
+
+User Address Influence: Utilizing msg.sender in the randomness calculation can lead to repeated rewards for users executing multiple transactions in a single block.
+
+This design flaw allows users to exploit the openBox() function, potentially receiving the same reward multiple times when transacting within the same block.
 
 The current code snippet is as follows:
 
@@ -245,8 +249,11 @@ uint256 randomValue = uint256(
 ```
 
 Since block.timestamp only updates with each new block and msg.sender remains constant for the same user, transactions that happen within the same block can produce identical random values. This can lead to users receiving the same reward multiple times.
-Impact
-The predictable nature of the random number generation results in users receiving the same rewards if they interact with the contract multiple times within the same block. This undermines the intended randomness of the reward distribution and could allow certain users to manipulate the system.
+
+## Impact
+
+The predictable nature of the random number generation results in users receiving the same rewards if they interact with the contract multiple times within the same block. This undermines the intended randomness of the reward distribution and could allow certain malicious users to manipulate the system to their favor.
+Economic Impact: Repeated rewards of high tier rewards can distort the economic model of the application, affecting sustainability.
 
 ## Tools Used
 
@@ -320,21 +327,13 @@ Add this code to your test suite:
 
 ## Recommendations
 
-To mitigate this issue, more entropy should be introduced to the random number generation. This could involve including additional dynamic values such as the block number or previous block hash:
+Secure Randomness Source: Implement a verifiable randomness source like Chainlink VRF to ensure reliable randomness.
 
-Replace the code with:
+Incorporate Additional Variables: Use other variables (e.g., nonce) in the randomness calculation to ensure diverse rewards.
 
-```javascript
-- uint256 randomValue = uint256(
-            keccak256(abi.encodePacked(block.timestamp, msg.sender))
-        ) % 100;
+Transaction Frequency Limitation: Limit the number of times a user can call openBox() within a block to prevent exploitation.
 
-+ uint256 randomValue = uint256(
-    keccak256(abi.encodePacked(block.timestamp, msg.sender, blockhash(block.number - 1)))
-) % 100;
-```
-
-This solution adds variability by incorporating the previous block hash, improving randomness.
+Implement a Delay Mechanism: Introduce a cooldown period to restrict rapid successive calls to the openBox() function.
 
 M-3 Users cannot buy multiple boxes at once; they must complete separate transactions.
 
@@ -360,12 +359,94 @@ Implement functionality that allows users to buy multiple boxes in a single tran
 Update the `buyBox()` function to accept a quantity parameter for the number of boxes.
 Adjust the user interface to let users select the number of boxes they want before completing the purchase.
 
+H-4 Loss of rewards when a user claims all rewards before opening some.
+
 ## Summary
+
+Inadvertent Loss of Unopened Rewards(boxes) in `claimAllRewards()` Function
 
 ## Vulnerability Details
 
+Type: Logic Error
+Affected Function: `claimAllRewards()`
+Description: The function aggregates the total value of rewards, transferring it to the user and deleting all rewards in the rewardsOwned array. This includes unopened rewards, which are inadvertently lost if the user forgets to open them first.
+
 ## Impact
+
+Users may lose valuable unopened rewards if they claim all rewards without opening their boxes first, leading to a total loss of funds.
 
 ## Tools Used
 
+Unit tests
+
+## POC
+
+User 2 should receive 1.5 ether (His total balance should be 2.2 ether), but instead gets 1 ether, and his `rewardsOwned` mapping gets deleted.
+Add this to your test suite.
+
+````javascript
+  function testPlayerCanClaimRewards() public {
+        //
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint r = mysteryBox.openBox();
+        console2.log("REWARD:", r);
+        mysteryBox.claimSingleReward(0);
+        //
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint a = mysteryBox.openBox();
+        console2.log("REWARD:", a);
+        mysteryBox.claimSingleReward(1);
+        MysteryBox.Reward[] memory aa = mysteryBox.getRewards(user1);
+        //
+        vm.startPrank(user2);
+        mysteryBox.buyBox{value: 0.1 ether}(); //silver reward 1
+        uint b = mysteryBox.openBox();
+        console2.log("REWARD:", b);
+        //
+        mysteryBox.buyBox{value: 0.1 ether}(); //silver reward 2
+        uint c = mysteryBox.openBox();
+        console2.log("REWARD:", c);
+        mysteryBox.buyBox{value: 0.1 ether}();//silver reward 3. not opened
+        mysteryBox.claimAllRewards();
+        MysteryBox.Reward[] memory rew = mysteryBox.getRewards(user2);
+
+        //
+        vm.startPrank(user3);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint w = mysteryBox.openBox();
+        console2.log("REWARD:", w);
+        mysteryBox.claimSingleReward(0);
+        //
+        vm.startPrank(user3);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint t = mysteryBox.openBox();
+        console2.log("REWARD:", t);
+        mysteryBox.claimSingleReward(1);
+        //
+        vm.startPrank(user4);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint y = mysteryBox.openBox();
+        console2.log("REWARD:", y);
+        mysteryBox.claimSingleReward(0);
+        //
+        vm.startPrank(user4);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint f = mysteryBox.openBox();
+        console2.log("REWARD:", f);
+        mysteryBox.claimSingleReward(1);
+
+        //  assertEq(mysteryBox.getBalance(), 19.9 ether);
+        assertEq(user3.balance, 0.8 ether);
+ >>>       assertEq(user2.balance, 1.7 ether);
+        assertEq(user1.balance, 0.8 ether);
+        assertEq(rew.length, 0);
+        assertEq(aa.length, 2);
+    } ```
+
 ## Recommendations
+Invoke openBox Automatically: Modify the buyBox function to automatically call the openBox function after purchasing a box. This ensures that users immediately open their rewards upon buying, reducing the likelihood of forgetting to do so later.
+
+
+````
