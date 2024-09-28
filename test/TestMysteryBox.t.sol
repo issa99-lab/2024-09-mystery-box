@@ -18,7 +18,7 @@ contract MysteryBoxTest is Test {
     //ERC20Mock public usdc;
 
     function setUp() public {
-        vm.deal(owner, 2 ether);
+        vm.deal(owner, 30 ether);
         vm.deal(user1, 1 ether);
         vm.deal(user2, 1 ether);
         vm.deal(user3, 1 ether);
@@ -32,10 +32,78 @@ contract MysteryBoxTest is Test {
         }
 
         vm.startPrank(owner);
-        mysteryBox = new MysteryBox{value: 0.1 ether}();
+        mysteryBox = new MysteryBox{value: 20 ether}();
 
         console2.log("Reward Pool Length:", mysteryBox.getRewardPool().length);
         console2.log("Bal:", mysteryBox.getBalance());
+    }
+
+    function testAnyoneCanClaimReward() public {
+        vm.startPrank(user4);
+        vm.expectRevert();
+        mysteryBox.claimSingleReward(2);
+        assertEq(user4.balance, 1 ether);
+    }
+
+    function testPlayerCanClaimRewards() public {
+        //
+        vm.deal(address(this), 10 ether);
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint r = mysteryBox.openBox();
+        console2.log("REWARD:", r);
+        mysteryBox.claimSingleReward(0);
+        //
+        vm.startPrank(user1);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint a = mysteryBox.openBox();
+        console2.log("REWARD:", a);
+        mysteryBox.claimSingleReward(1);
+        //
+        vm.startPrank(user2);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint b = mysteryBox.openBox();
+        console2.log("REWARD:", b);
+        //
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint c = mysteryBox.openBox();
+        console2.log("REWARD:", c);
+        //
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint q = mysteryBox.openBox();
+        console2.log("REWARD:", q);
+        mysteryBox.claimAllRewards();
+        MysteryBox.Reward[] memory rew = mysteryBox.getRewards(user2);
+
+        //
+        vm.startPrank(user3);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint w = mysteryBox.openBox();
+        console2.log("REWARD:", w);
+        mysteryBox.claimSingleReward(0);
+        //
+        vm.startPrank(user3);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint t = mysteryBox.openBox();
+        console2.log("REWARD:", t);
+        mysteryBox.claimSingleReward(1);
+        //
+        vm.startPrank(user4);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint y = mysteryBox.openBox();
+        console2.log("REWARD:", y);
+        mysteryBox.claimSingleReward(0);
+        //
+        vm.startPrank(user4);
+        mysteryBox.buyBox{value: 0.1 ether}();
+        uint f = mysteryBox.openBox();
+        console2.log("REWARD:", f);
+        mysteryBox.claimSingleReward(1);
+
+        assertEq(mysteryBox.getBalance(), 19.4 ether);
+        assertEq(user3.balance, 0.8 ether);
+        assertEq(user2.balance, 2.2 ether);
+        assertEq(rew.length, 0);
     }
 
     function testStealFunds() public {
@@ -60,7 +128,7 @@ contract MysteryBoxTest is Test {
             mysteryBox.buyBox{value: 0.1 ether}();
             uint r = mysteryBox.openBox();
             console2.log("REWARD:", r);
-            MysteryBox.Reward[] memory rewards = mysteryBox.getRewards();
+            MysteryBox.Reward[] memory rewards = mysteryBox.getRewards(player);
             console2.log("Player:", player);
             console2.log("Number of rewards:", rewards.length);
 
@@ -129,7 +197,7 @@ contract MysteryBoxTest is Test {
         assertEq(mysteryBox.boxesOwned(user1), 0);
 
         vm.startPrank(user1);
-        MysteryBox.Reward[] memory rewards = mysteryBox.getRewards();
+        MysteryBox.Reward[] memory rewards = mysteryBox.getRewards(user1);
         console2.log(rewards[0].name);
         assertEq(rewards.length, 1);
     }
